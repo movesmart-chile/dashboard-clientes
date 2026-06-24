@@ -1,9 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Dashboard Evolución | Juan Ugalde · MoveSmart</title>
+<title>Dashboard Evolución | Cliente Referencia · MoveSmart</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Segoe UI',system-ui,sans-serif}
 :root{--bg:#050914;--text:#fff;--muted:rgba(255,255,255,.72);--border:rgba(255,255,255,.12);--card:rgba(255,255,255,.075);--soft:rgba(255,255,255,.045);--accent:#ff5a1f;--blue:#4f8cff;--green:#65d978;--red:#ff7474;--shadow:0 14px 34px rgba(0,0,0,.30);--container:min(1180px,calc(100% - 28px))}
@@ -17,7 +18,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background:rad
 <section class="hero">
   <div class="card">
     <div class="pill">Programa personalizado</div>
-    <h1>Mi evolución<br><span class="accent">Juan Ugalde</span></h1>
+    <h1>Mi evolución<br><span class="accent" id="clienteNombre">Cliente Referencia</span></h1>
     <p>Seguimiento del proceso desde el inicio del programa, incluyendo hitos clínicos, cambios de rutina, adherencia y respuestas registradas después de entrenar.</p>
     <div class="tabs"><button class="tab active" data-tab="evolucion">Mi evolución</button><button class="tab" data-tab="registro">Mi registro</button></div>
   </div>
@@ -44,45 +45,234 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background:rad
 </section>
 </main>
 <script>
-const sesiones=[
-{fecha:'2026-06-03',semana:'Semana 1',rutina:'Rutina A Express',completada:'Sí, parcial',sensacion:'Muy bien',esfuerzo:5,dolor:'No',comentario:'No alcancé todo, pero se sintió súper.'},
-{fecha:'2026-06-14',semana:'Semana 2',rutina:'Rutina B Express',completada:'Sí, completa',sensacion:'Bien',esfuerzo:5,dolor:'No',comentario:''},
-{fecha:'2026-06-17',semana:'Semana 3',rutina:'Rutina A Express',completada:'Sí, parcial',sensacion:'Bien',esfuerzo:10,dolor:'No',comentario:'Llegué hasta puente de glúteos.'},
-{fecha:'2026-06-17',semana:'Semana 3',rutina:'Rutina A Completa',completada:'Sí, completa',sensacion:'Bien',esfuerzo:5,dolor:'Sí, leve',comentario:''},
-{fecha:'2026-06-21',semana:'Semana 3',rutina:'Rutina B Express',completada:'Sí, completa',sensacion:'Muy bien',esfuerzo:5,dolor:'No',comentario:'Todo bien'}
-];
-const elecciones=[
-{fecha:'2026-06-03',rutina:'Rutina A',energia:'alta',motivacion:'alta',estructura:'Express',modo:'Plus'},
-{fecha:'2026-06-07',rutina:'Rutina B',energia:'baja',motivacion:'baja',estructura:'Express',modo:'Recovery'},
-{fecha:'2026-06-14',rutina:'Rutina B',energia:'baja',motivacion:'baja',estructura:'Express',modo:'Recovery'},
-{fecha:'2026-06-17',rutina:'Rutina A',energia:'baja',motivacion:'baja',estructura:'Express',modo:'Recovery'},
-{fecha:'2026-06-21',rutina:'Rutina A',energia:'baja',motivacion:'baja',estructura:'Express',modo:'Recovery'}
-];
+/*
+  CONEXIÓN CON GOOGLE SHEETS
+  1) Copia tu URL del Apps Script que termina en /exec
+  2) Pégala entre las comillas de API_URL
+*/
+const API_URL = "https://script.google.com/macros/s/AKfycby-YY0243Pg_0Y3wlNGVFm92QMkwp19oE2yha90yPB5OlbmEACNcmz96yuXaLKpJp_E/exec";
+
+// Hitos manuales del proceso. Estos todavía los puedes editar tú.
 const hitos=[
-{icon:'🚀',titulo:'Inicio del programa',periodo:'Marzo 2026',texto:'Se inicia el proceso con un programa base para crear adherencia, movimiento y confianza.'},
-{icon:'⚠️',titulo:'Aparece dolor de rodilla',periodo:'Abril 2026',texto:'Este hito cambia la dirección del proceso y se decide ajustar el programa.'},
-{icon:'🛠️',titulo:'Bloque de estabilidad',periodo:'Abril–Mayo 2026',texto:'Se prioriza control de cadera, estabilidad de rodilla y tolerancia progresiva.'},
-{icon:'📈',titulo:'Mejor tolerancia',periodo:'Mayo 2026',texto:'Se reintroduce fuerza de forma gradual según respuesta del cliente.'},
-{icon:'🎯',titulo:'Sistema Rutina A/B',periodo:'Junio 2026',texto:'Se incorpora autonomía: versión completa o adaptada según energía, tiempo y estado del día.'}
+  {icon:'🚀',titulo:'Inicio del programa',periodo:'Marzo 2026',texto:'Se inicia el proceso con un programa base para crear adherencia, movimiento y confianza.'},
+  {icon:'⚠️',titulo:'Aparece dolor de rodilla',periodo:'Abril 2026',texto:'Este hito cambia la dirección del proceso y se decide ajustar el programa.'},
+  {icon:'🛠️',titulo:'Bloque de estabilidad',periodo:'Abril–Mayo 2026',texto:'Se prioriza control de cadera, estabilidad de rodilla y tolerancia progresiva.'},
+  {icon:'📈',titulo:'Mejor tolerancia',periodo:'Mayo 2026',texto:'Se reintroduce fuerza de forma gradual según respuesta del cliente.'},
+  {icon:'🎯',titulo:'Sistema Rutina A/B',periodo:'Junio 2026',texto:'Se incorpora autonomía: versión completa o adaptada según energía, tiempo y estado del día.'}
 ];
-function monthKey(date){const d=new Date(date+'T00:00:00');return d.toLocaleDateString('es-CL',{month:'short',year:'numeric'}).replace('.','')}
-function dolorNum(v){return String(v).toLowerCase().includes('sí')?1:0}
-function avg(a){return a.length? a.reduce((x,y)=>x+y,0)/a.length:0}
-function counts(arr,key){return arr.reduce((o,r)=>(o[r[key]]=(o[r[key]]||0)+1,o),{})}
-function drawBar(canvas,labels,values,opt={}){const c=canvas.getContext('2d'),w=canvas.width=canvas.offsetWidth*2,h=canvas.height=canvas.offsetHeight*2;c.clearRect(0,0,w,h);const max=Math.max(...values,1),pad=42,bw=(w-pad*2)/values.length*.58;c.font='24px Segoe UI';c.fillStyle='rgba(255,255,255,.72)';labels.forEach((l,i)=>{const x=pad+i*((w-pad*2)/values.length)+(w-pad*2)/values.length*.21;const bh=(h-90)*(values[i]/max);const y=h-46-bh;let g=c.createLinearGradient(0,y,0,h);g.addColorStop(0,opt.color||'#ff5a1f');g.addColorStop(1,'rgba(255,90,31,.25)');c.fillStyle=g;roundRect(c,x,y,bw,bh,16,true);c.fillStyle='rgba(255,255,255,.74)';c.textAlign='center';c.fillText(l,x+bw/2,h-14);c.fillStyle='#fff';c.font='bold 25px Segoe UI';c.fillText(Math.round(values[i]*10)/10,x+bw/2,y-12);c.font='24px Segoe UI'});}
-function drawLine(canvas,labels,values,color='#4f8cff'){const c=canvas.getContext('2d'),w=canvas.width=canvas.offsetWidth*2,h=canvas.height=canvas.offsetHeight*2;c.clearRect(0,0,w,h);const max=Math.max(...values,10),pad=46;c.strokeStyle='rgba(255,255,255,.12)';c.lineWidth=2;for(let i=0;i<4;i++){let y=pad+i*(h-95)/3;c.beginPath();c.moveTo(pad,y);c.lineTo(w-pad,y);c.stroke()}let pts=values.map((v,i)=>[pad+i*(w-pad*2)/(values.length-1||1),h-50-(h-105)*(v/max)]);c.strokeStyle=color;c.lineWidth=6;c.beginPath();pts.forEach((p,i)=>i?c.lineTo(...p):c.moveTo(...p));c.stroke();pts.forEach((p,i)=>{c.fillStyle=color;c.beginPath();c.arc(p[0],p[1],9,0,Math.PI*2);c.fill();c.fillStyle='#fff';c.font='bold 24px Segoe UI';c.textAlign='center';c.fillText(values[i],p[0],p[1]-18);c.fillStyle='rgba(255,255,255,.72)';c.font='22px Segoe UI';c.fillText(labels[i],p[0],h-14)})}
-function roundRect(ctx,x,y,w,h,r,fill){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill)ctx.fill()}
-function render(){
- const months={};sesiones.forEach(s=>{let m=monthKey(s.fecha);months[m]=months[m]||[];months[m].push(s)});const labels=Object.keys(months),sesionesMes=labels.map(m=>months[m].length),dolorMes=labels.map(m=>avg(months[m].map(x=>dolorNum(x.dolor)))),esfuerzoMes=labels.map(m=>avg(months[m].map(x=>x.esfuerzo)));
- const completadas=sesiones.filter(s=>s.completada.includes('completa')).length, adherencia=Math.round(completadas/sesiones.length*100), dolorTotal=sesiones.filter(s=>dolorNum(s.dolor)).length, esfuerzoProm=Math.round(avg(sesiones.map(s=>s.esfuerzo))*10)/10;
- document.getElementById('kpis').innerHTML=`<div class="kpi"><small>Sesiones registradas</small><strong>${sesiones.length}</strong></div><div class="kpi"><small>Adherencia</small><strong>${adherencia}%</strong></div><div class="kpi"><small>Dolor reportado</small><strong>${dolorTotal} vez</strong></div><div class="kpi"><small>Esfuerzo promedio</small><strong>${esfuerzoProm}/10</strong></div>`;
- document.getElementById('timeline').innerHTML=hitos.map(h=>`<div class="event"><div class="dot">${h.icon}</div><div><h3>${h.titulo}</h3><p><strong>${h.periodo}</strong><br>${h.texto}</p></div></div>`).join('');
- document.getElementById('history').innerHTML=sesiones.map(s=>`<li class="log"><strong>${new Date(s.fecha+'T00:00:00').toLocaleDateString('es-CL')}</strong><div><span class="badge b-blue">${s.rutina}</span> <span class="badge ${dolorNum(s.dolor)?'b-red':'b-green'}">Dolor: ${s.dolor}</span><p class="muted" style="margin-top:8px">${s.completada} · Sensación: ${s.sensacion} · Esfuerzo: ${s.esfuerzo}/10 ${s.comentario?'<br>'+s.comentario:''}</p></div><span class="badge b-green">${s.semana}</span></li>`).join('');
- const rc=counts(elecciones,'rutina'),mc=counts(elecciones,'modo');
- drawBar(document.getElementById('monthlyChart'),labels,sesionesMes);drawBar(document.getElementById('routineChart'),Object.keys(rc),Object.values(rc),{color:'#4f8cff'});drawLine(document.getElementById('sessionChart'),sesiones.map(s=>s.fecha.slice(5)),sesiones.map(s=>s.esfuerzo),'#65d978');drawBar(document.getElementById('modeChart'),Object.keys(mc),Object.values(mc),{color:'#65d978'});
+
+let sesiones=[];
+
+function parseFecha(value){
+  if(!value) return null;
+  if(value instanceof Date) return value;
+  const text=String(value);
+  const d=new Date(text);
+  if(!isNaN(d)) return d;
+  return null;
 }
-document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));b.classList.add('active');document.getElementById(b.dataset.tab).classList.add('active');setTimeout(render,80)}));
-window.addEventListener('resize',render);render();
+
+function monthKey(date){
+  const d=parseFecha(date);
+  if(!d) return 'Sin fecha';
+  return d.toLocaleDateString('es-CL',{month:'short',year:'numeric'}).replace('.','');
+}
+
+function dolorNum(v){
+  if(v===null || v===undefined || v==='') return 0;
+  const n=Number(String(v).replace(',','.'));
+  if(!isNaN(n)) return n;
+  const t=String(v).toLowerCase();
+  if(t.includes('no')) return 0;
+  if(t.includes('leve')) return 1;
+  if(t.includes('sí') || t.includes('si')) return 1;
+  return 0;
+}
+
+function esfuerzoNum(v){
+  const n=Number(String(v ?? 0).replace(',','.'));
+  return isNaN(n)?0:n;
+}
+
+function avg(a){
+  const valid=a.filter(x=>!isNaN(x));
+  return valid.length? valid.reduce((x,y)=>x+y,0)/valid.length:0;
+}
+
+function counts(arr,key){
+  return arr.reduce((o,r)=>{
+    const k=(r[key]||'Sin dato').trim ? r[key].trim() : r[key];
+    o[k]=(o[k]||0)+1;
+    return o;
+  },{});
+}
+
+function esCompleta(v){
+  return String(v||'').toLowerCase().includes('completa');
+}
+
+function drawBar(canvas,labels,values,opt={}){
+  const c=canvas.getContext('2d'),w=canvas.width=canvas.offsetWidth*2,h=canvas.height=canvas.offsetHeight*2;
+  c.clearRect(0,0,w,h);
+  const max=Math.max(...values,1),pad=42,bw=(w-pad*2)/Math.max(values.length,1)*.58;
+  c.font='24px Segoe UI';
+  labels.forEach((l,i)=>{
+    const step=(w-pad*2)/Math.max(values.length,1);
+    const x=pad+i*step+step*.21;
+    const bh=(h-90)*(values[i]/max);
+    const y=h-46-bh;
+    let g=c.createLinearGradient(0,y,0,h);
+    g.addColorStop(0,opt.color||'#ff5a1f');
+    g.addColorStop(1,'rgba(255,90,31,.25)');
+    c.fillStyle=g;
+    roundRect(c,x,y,bw,bh,16,true);
+    c.fillStyle='rgba(255,255,255,.74)';
+    c.textAlign='center';
+    c.fillText(String(l),x+bw/2,h-14);
+    c.fillStyle='#fff';
+    c.font='bold 25px Segoe UI';
+    c.fillText(Math.round(values[i]*10)/10,x+bw/2,y-12);
+    c.font='24px Segoe UI';
+  });
+}
+
+function drawLine(canvas,labels,values,color='#4f8cff'){
+  const c=canvas.getContext('2d'),w=canvas.width=canvas.offsetWidth*2,h=canvas.height=canvas.offsetHeight*2;
+  c.clearRect(0,0,w,h);
+  const max=Math.max(...values,10),pad=46;
+  c.strokeStyle='rgba(255,255,255,.12)';
+  c.lineWidth=2;
+  for(let i=0;i<4;i++){
+    let y=pad+i*(h-95)/3;
+    c.beginPath();c.moveTo(pad,y);c.lineTo(w-pad,y);c.stroke();
+  }
+  if(values.length===0) return;
+  let pts=values.map((v,i)=>[
+    pad+i*(w-pad*2)/(values.length-1||1),
+    h-50-(h-105)*(v/max)
+  ]);
+  c.strokeStyle=color;c.lineWidth=6;c.beginPath();
+  pts.forEach((p,i)=>i?c.lineTo(...p):c.moveTo(...p));c.stroke();
+  pts.forEach((p,i)=>{
+    c.fillStyle=color;c.beginPath();c.arc(p[0],p[1],9,0,Math.PI*2);c.fill();
+    c.fillStyle='#fff';c.font='bold 24px Segoe UI';c.textAlign='center';c.fillText(values[i],p[0],p[1]-18);
+    c.fillStyle='rgba(255,255,255,.72)';c.font='22px Segoe UI';c.fillText(labels[i],p[0],h-14);
+  });
+}
+
+function roundRect(ctx,x,y,w,h,r,fill){
+  ctx.beginPath();
+  if(ctx.roundRect){ctx.roundRect(x,y,w,h,r);}
+  else {ctx.rect(x,y,w,h);}
+  if(fill)ctx.fill();
+}
+
+function normalizarDatos(data){
+  return data.map(s=>({
+    fecha:s.fecha || '',
+    semana:s.semana || '',
+    cliente:s.cliente || 'Cliente Referencia',
+    sesion_objetivo:s.sesion_objetivo || '',
+    rutina:s.rutina || 'Sin rutina',
+    completada:s.completada || '',
+    sensacion:s.sensacion || '',
+    esfuerzo:esfuerzoNum(s.esfuerzo),
+    dolor:dolorNum(s.dolor),
+    dolorTexto:String(s.dolor ?? ''),
+    zona:s.zona || '',
+    comentario:s.comentario || ''
+  })).sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
+}
+
+async function cargarDatos(){
+  const status=document.getElementById('kpis');
+  status.innerHTML='<div class="kpi"><small>Estado</small><strong>Cargando...</strong></div>';
+  if(API_URL.includes('PEGA_AQUI')){
+    status.innerHTML='<div class="kpi"><small>Falta conexión</small><strong>API_URL</strong></div><div class="kpi"><small>Acción</small><strong>Pega tu URL /exec</strong></div>';
+    return;
+  }
+  try{
+    const res=await fetch(API_URL + (API_URL.includes('?')?'&':'?') + 't=' + Date.now());
+    const json=await res.json();
+    sesiones=normalizarDatos(json.data || []);
+    render();
+  }catch(error){
+    status.innerHTML=`<div class="kpi"><small>Error</small><strong>No cargó</strong></div><div class="kpi"><small>Detalle</small><strong style="font-size:.85rem">${error.message}</strong></div>`;
+  }
+}
+
+function render(){
+  if(!sesiones.length){
+    document.getElementById('kpis').innerHTML='<div class="kpi"><small>Sin datos</small><strong>0</strong></div>';
+    return;
+  }
+
+  const cliente=sesiones[0].cliente || 'Cliente Referencia';
+  document.getElementById('clienteNombre').textContent=cliente;
+
+  const months={};
+  sesiones.forEach(s=>{
+    let m=monthKey(s.fecha);
+    months[m]=months[m]||[];
+    months[m].push(s);
+  });
+
+  const labels=Object.keys(months);
+  const sesionesMes=labels.map(m=>months[m].length);
+  const completadas=sesiones.filter(s=>esCompleta(s.completada)).length;
+  const adherencia=Math.round(completadas/sesiones.length*100);
+  const dolorInicial=sesiones[0].dolor;
+  const dolorActual=sesiones[sesiones.length-1].dolor;
+  const esfuerzoProm=Math.round(avg(sesiones.map(s=>s.esfuerzo))*10)/10;
+
+  document.getElementById('kpis').innerHTML=`
+    <div class="kpi"><small>Sesiones registradas</small><strong>${sesiones.length}</strong></div>
+    <div class="kpi"><small>Adherencia</small><strong>${adherencia}%</strong></div>
+    <div class="kpi"><small>Dolor inicial → actual</small><strong>${dolorInicial} → ${dolorActual}</strong></div>
+    <div class="kpi"><small>Esfuerzo promedio</small><strong>${esfuerzoProm}/10</strong></div>
+  `;
+
+  document.getElementById('timeline').innerHTML=hitos.map(h=>`
+    <div class="event">
+      <div class="dot">${h.icon}</div>
+      <div><h3>${h.titulo}</h3><p><strong>${h.periodo}</strong><br>${h.texto}</p></div>
+    </div>
+  `).join('');
+
+  document.getElementById('history').innerHTML=sesiones.map(s=>`
+    <li class="log">
+      <strong>${parseFecha(s.fecha)?.toLocaleDateString('es-CL') || s.fecha}</strong>
+      <div>
+        <span class="badge b-blue">${s.sesion_objetivo || s.rutina}</span>
+        <span class="badge b-blue">${s.rutina}</span>
+        <span class="badge ${s.dolor>0?'b-red':'b-green'}">Dolor: ${s.dolor}</span>
+        <p class="muted" style="margin-top:8px">
+          ${s.completada} · Sensación: ${s.sensacion} · Esfuerzo: ${s.esfuerzo}/10
+          ${s.comentario?'<br>'+s.comentario:''}
+        </p>
+      </div>
+      <span class="badge b-green">${s.semana}</span>
+    </li>
+  `).join('');
+
+  const rc=counts(sesiones,'rutina');
+
+  drawBar(document.getElementById('monthlyChart'),labels,sesionesMes);
+  drawBar(document.getElementById('routineChart'),Object.keys(rc),Object.values(rc),{color:'#4f8cff'});
+  drawLine(document.getElementById('sessionChart'),sesiones.map(s=>s.sesion_objetivo.replace('Sesión ', 'S') || s.fecha.slice(5)),sesiones.map(s=>s.dolor),'#ff7474');
+  drawLine(document.getElementById('modeChart'),sesiones.map(s=>s.sesion_objetivo.replace('Sesión ', 'S') || s.fecha.slice(5)),sesiones.map(s=>s.esfuerzo),'#65d978');
+}
+
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.section').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');
+  document.getElementById(b.dataset.tab).classList.add('active');
+  setTimeout(render,80);
+}));
+
+window.addEventListener('resize',render);
+cargarDatos();
 </script>
 </body>
 </html>

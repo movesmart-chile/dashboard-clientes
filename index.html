@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -17,7 +18,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background:rad
 <section class="hero">
   <div class="card">
     <div class="pill">Programa personalizado</div>
-    <h1>Mi evolución<br><span class="accent">Juan Ugalde</span></h1>
+    <h1>Mi evolución<br><span class="accent" id="clientName">Cargando...</span></h1>
     <p>Seguimiento del proceso desde el inicio del programa, incluyendo hitos clínicos, cambios de rutina, adherencia y respuestas registradas después de entrenar.</p>
     <div class="tabs"><button class="tab active" data-tab="evolucion">Mi evolución</button><button class="tab" data-tab="registro">Mi registro</button></div>
   </div>
@@ -27,18 +28,18 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background:rad
 <section id="evolucion" class="section active">
   <div class="grid">
     <article class="card"><h2>Resumen mensual</h2><p class="muted">El HTML agrupa automáticamente las sesiones por mes usando la fecha.</p><div class="chart-box"><canvas id="monthlyChart"></canvas></div></article>
-    <article class="card"><h2>Rutina A vs B</h2><p class="muted">Desde junio se incorpora la elección A/B según energía, tiempo y estado del día.</p><div class="chart-box"><canvas id="routineChart"></canvas></div></article>
+    <article class="card"><h2>Rutina A vs B</h2><p class="muted">Se alimenta desde la pestaña donde el cliente escoge la rutina antes de entrenar.</p><div class="chart-box"><canvas id="routineChart"></canvas></div></article>
   </div>
   <div class="grid">
     <article class="card"><div class="year-title"><h2>2026 · Línea de hitos</h2><span></span></div><div class="timeline" id="timeline"></div></article>
-    <article class="card"><h2>Programa actual</h2><p class="muted">Sistema de autonomía: Juan puede escoger una versión completa o adaptada según cómo llega ese día.</p><div class="routine-grid"><div class="routine"><h3>Rutina A</h3><ul><li>Rehabilitación progresiva de rodilla</li><li>Bloque principal de fuerza y control</li><li>Estabilidad progresiva</li><li>Vuelta a la calma</li></ul></div><div class="routine"><h3>Rutina B</h3><ul><li>Cardio + core + tren superior</li><li>Movilidad inicial</li><li>Bloque principal adaptado</li><li>Opción Recovery cuando baja la energía</li></ul></div></div><div class="note"><strong>Lectura MoveSmart:</strong> el valor no está solo en la rutina, sino en mostrar cuándo se modificó el proceso y por qué.</div></article>
+    <article class="card"><h2>Programa actual</h2><p class="muted">Sistema de autonomía: el cliente puede escoger una versión completa o adaptada según cómo llega ese día.</p><div class="routine-grid"><div class="routine"><h3>Rutina A</h3><ul><li>Versión principal / completa</li><li>Bloque de fuerza y control</li><li>Progresión según tolerancia</li><li>Vuelta a la calma</li></ul></div><div class="routine"><h3>Rutina B</h3><ul><li>Versión breve o adaptada</li><li>Movilidad y control</li><li>Menor carga percibida</li><li>Opción cuando baja la energía</li></ul></div></div><div class="note"><strong>Lectura MoveSmart:</strong> el valor no está solo en la rutina, sino en mostrar cuándo se modificó el proceso y por qué.</div></article>
   </div>
 </section>
 
 <section id="registro" class="section">
   <div class="grid">
-    <article class="card"><h2>Dolor y esfuerzo</h2><p class="muted">Cada punto sale de los registros diarios de sesión.</p><div class="chart-box"><canvas id="sessionChart"></canvas></div></article>
-    <article class="card"><h2>Modo usado</h2><p class="muted">Plus o Recovery según la elección de rutina registrada.</p><div class="chart-box"><canvas id="modeChart"></canvas></div></article>
+    <article class="card"><h2>Dolor y esfuerzo</h2><p class="muted">Cada punto sale de los registros posteriores a la sesión.</p><div class="chart-box"><canvas id="sessionChart"></canvas></div></article>
+    <article class="card"><h2>Modo usado</h2><p class="muted">Plus o Recovery según la elección previa de rutina.</p><div class="chart-box"><canvas id="modeChart"></canvas></div></article>
   </div>
   <article class="card" style="margin-top:14px"><h2>Historial de check-ins</h2><ul class="history" id="history"></ul></article>
 </section>
@@ -47,6 +48,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background:rad
 const API_URL = "https://script.google.com/macros/s/AKfycby-YY0243Pg_0Y3wlNGVFm92QMkwp19oE2yha90yPB5OlbmEACNcmz96yuXaLKpJp_E/exec";
 
 let sesiones = [];
+let elecciones = [];
 
 const hitos=[
 {icon:'🚀',titulo:'Inicio del programa',periodo:'Marzo 2026',texto:'Se inicia el proceso con un programa base para crear adherencia, movimiento y confianza.'},
@@ -56,48 +58,73 @@ const hitos=[
 {icon:'🎯',titulo:'Sistema Rutina A/B',periodo:'Junio 2026',texto:'Se incorpora autonomía: versión completa o adaptada según energía, tiempo y estado del día.'}
 ];
 
-function monthKey(date){const d=new Date(String(date).slice(0,10)+'T00:00:00');return d.toLocaleDateString('es-CL',{month:'short',year:'numeric'}).replace('.','')}
-function dolorNum(v){const t=String(v).toLowerCase().trim(); if(t==='no'||t==='0'||t==='')return 0; const n=Number(t.replace(',','.')); if(!isNaN(n))return n; return t.includes('sí')?1:0}
+function parseDate(value){
+  if(!value) return null;
+  if(value instanceof Date) return value;
+  const txt = String(value).trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(txt)) return new Date(txt.slice(0,10)+'T00:00:00');
+  if(/^\d{2}\/\d{2}\/\d{4}/.test(txt)){
+    const [d,m,y] = txt.split('/');
+    return new Date(`${y}-${m}-${d}T00:00:00`);
+  }
+  const d = new Date(txt);
+  return isNaN(d) ? null : d;
+}
+function monthKey(date){const d=parseDate(date); if(!d) return 'Sin fecha'; return d.toLocaleDateString('es-CL',{month:'short',year:'numeric'}).replace('.','')}
+function shortDate(date){const d=parseDate(date); if(!d) return 'Sin fecha'; return d.toLocaleDateString('es-CL')}
+function labelDate(date){const d=parseDate(date); if(!d) return ''; return String(d.toISOString().slice(5,10))}
+function dolorNum(v){const t=String(v ?? '').toLowerCase().trim(); if(t==='no'||t==='0'||t==='')return 0; const n=Number(t.replace(',','.')); if(!isNaN(n))return n; return t.includes('sí')?1:0}
 function avg(a){const nums=a.map(Number).filter(n=>!isNaN(n)); return nums.length?nums.reduce((x,y)=>x+y,0)/nums.length:0}
 function counts(arr,key){return arr.reduce((o,r)=>{const v=r[key]||'Sin dato'; o[v]=(o[v]||0)+1; return o},{})}
 
 function roundRect(ctx,x,y,w,h,r,fill){ctx.beginPath();ctx.roundRect(x,y,w,h,r);if(fill)ctx.fill()}
-function drawBar(canvas,labels,values,opt={}){const c=canvas.getContext('2d'),w=canvas.width=canvas.offsetWidth*2,h=canvas.height=canvas.offsetHeight*2;c.clearRect(0,0,w,h);if(!values.length){c.fillStyle='rgba(255,255,255,.7)';c.font='24px Segoe UI';c.fillText('Sin datos',40,60);return}const max=Math.max(...values,1),pad=42,bw=(w-pad*2)/values.length*.58;c.font='24px Segoe UI';labels.forEach((l,i)=>{const x=pad+i*((w-pad*2)/values.length)+(w-pad*2)/values.length*.21;const bh=(h-90)*(values[i]/max);const y=h-46-bh;let g=c.createLinearGradient(0,y,0,h);g.addColorStop(0,opt.color||'#ff5a1f');g.addColorStop(1,'rgba(255,90,31,.25)');c.fillStyle=g;roundRect(c,x,y,bw,bh,16,true);c.fillStyle='rgba(255,255,255,.74)';c.textAlign='center';c.fillText(l,x+bw/2,h-14);c.fillStyle='#fff';c.font='bold 25px Segoe UI';c.fillText(Math.round(values[i]*10)/10,x+bw/2,y-12);c.font='24px Segoe UI'})}
+function drawBar(canvas,labels,values,opt={}){const c=canvas.getContext('2d'),w=canvas.width=canvas.offsetWidth*2,h=canvas.height=canvas.offsetHeight*2;c.clearRect(0,0,w,h);if(!values.length){c.fillStyle='rgba(255,255,255,.7)';c.font='24px Segoe UI';c.fillText('Sin datos',40,60);return}const max=Math.max(...values,1),pad=42,bw=(w-pad*2)/values.length*.58;c.font='24px Segoe UI';labels.forEach((l,i)=>{const x=pad+i*((w-pad*2)/values.length)+(w-pad*2)/values.length*.21;const bh=(h-90)*(values[i]/max);const y=h-46-bh;let g=c.createLinearGradient(0,y,0,h);g.addColorStop(0,opt.color||'#ff5a1f');g.addColorStop(1,'rgba(255,90,31,.25)');c.fillStyle=g;roundRect(c,x,y,bw,bh,16,true);c.fillStyle='rgba(255,255,255,.74)';c.textAlign='center';c.fillText(String(l).slice(0,15),x+bw/2,h-14);c.fillStyle='#fff';c.font='bold 25px Segoe UI';c.fillText(Math.round(values[i]*10)/10,x+bw/2,y-12);c.font='24px Segoe UI'})}
 function drawLine(canvas,labels,values,color='#4f8cff'){const c=canvas.getContext('2d'),w=canvas.width=canvas.offsetWidth*2,h=canvas.height=canvas.offsetHeight*2;c.clearRect(0,0,w,h);if(!values.length){c.fillStyle='rgba(255,255,255,.7)';c.font='24px Segoe UI';c.fillText('Sin datos',40,60);return}const max=Math.max(...values,10),pad=46;c.strokeStyle='rgba(255,255,255,.12)';c.lineWidth=2;for(let i=0;i<4;i++){let y=pad+i*(h-95)/3;c.beginPath();c.moveTo(pad,y);c.lineTo(w-pad,y);c.stroke()}let pts=values.map((v,i)=>[pad+i*(w-pad*2)/(values.length-1||1),h-50-(h-105)*(v/max)]);c.strokeStyle=color;c.lineWidth=6;c.beginPath();pts.forEach((p,i)=>i?c.lineTo(...p):c.moveTo(...p));c.stroke();pts.forEach((p,i)=>{c.fillStyle=color;c.beginPath();c.arc(p[0],p[1],9,0,Math.PI*2);c.fill();c.fillStyle='#fff';c.font='bold 24px Segoe UI';c.textAlign='center';c.fillText(values[i],p[0],p[1]-18);c.fillStyle='rgba(255,255,255,.72)';c.font='22px Segoe UI';c.fillText(labels[i],p[0],h-14)})}
 
 function render(){
- if(!sesiones.length){document.getElementById('kpis').innerHTML=`<div class="kpi"><small>Estado</small><strong>Sin datos</strong></div>`;return}
- const cliente=sesiones[0].cliente||'Cliente';
- document.querySelector('.hero h1').innerHTML=`Mi evolución<br><span class="accent">${cliente}</span>`;
+ if(!sesiones.length && !elecciones.length){
+  document.getElementById('clientName').textContent='Sin datos';
+  document.getElementById('kpis').innerHTML=`<div class="kpi"><small>Estado</small><strong>Sin datos</strong></div>`;
+  return;
+ }
+ const cliente=(sesiones[0]&&sesiones[0].cliente)||(elecciones[0]&&elecciones[0].cliente)||'Cliente';
+ document.getElementById('clientName').textContent=cliente;
+
  const months={}; sesiones.forEach(s=>{let m=monthKey(s.fecha); months[m]=months[m]||[]; months[m].push(s)});
  const labels=Object.keys(months), sesionesMes=labels.map(m=>months[m].length);
  const completadas=sesiones.filter(s=>String(s.completada).toLowerCase().includes('completa')).length;
- const adherencia=Math.round(completadas/sesiones.length*100);
- const dolorInicial=dolorNum(sesiones[0].dolor), dolorActual=dolorNum(sesiones[sesiones.length-1].dolor);
- const esfuerzoProm=Math.round(avg(sesiones.map(s=>Number(s.esfuerzo)))*10)/10;
- document.getElementById('kpis').innerHTML=`<div class="kpi"><small>Sesiones registradas</small><strong>${sesiones.length}</strong></div><div class="kpi"><small>Adherencia</small><strong>${adherencia}%</strong></div><div class="kpi"><small>Dolor inicial → actual</small><strong>${dolorInicial} → ${dolorActual}</strong></div><div class="kpi"><small>Esfuerzo promedio</small><strong>${esfuerzoProm}/10</strong></div>`;
+ const adherencia=sesiones.length ? Math.round(completadas/sesiones.length*100) : 0;
+ const dolorInicial=sesiones.length ? dolorNum(sesiones[0].dolor) : 0;
+ const dolorActual=sesiones.length ? dolorNum(sesiones[sesiones.length-1].dolor) : 0;
+ const esfuerzoProm=sesiones.length ? Math.round(avg(sesiones.map(s=>Number(s.esfuerzo)))*10)/10 : 0;
+ const rutinasElegidas=elecciones.length;
+
+ document.getElementById('kpis').innerHTML=`<div class="kpi"><small>Sesiones registradas</small><strong>${sesiones.length}</strong></div><div class="kpi"><small>Elecciones previas</small><strong>${rutinasElegidas}</strong></div><div class="kpi"><small>Dolor inicial → actual</small><strong>${dolorInicial} → ${dolorActual}</strong></div><div class="kpi"><small>Esfuerzo promedio</small><strong>${esfuerzoProm}/10</strong></div>`;
  document.getElementById('timeline').innerHTML=hitos.map(h=>`<div class="event"><div class="dot">${h.icon}</div><div><h3>${h.titulo}</h3><p><strong>${h.periodo}</strong><br>${h.texto}</p></div></div>`).join('');
- document.getElementById('history').innerHTML=sesiones.map(s=>`<li class="log"><strong>${new Date(String(s.fecha).slice(0,10)+'T00:00:00').toLocaleDateString('es-CL')}</strong><div><span class="badge b-blue">${s.rutina||'Sin rutina'}</span> <span class="badge ${dolorNum(s.dolor)>0?'b-red':'b-green'}">Dolor: ${s.dolor}</span><p class="muted" style="margin-top:8px">${s.completada||'Sin dato'} · Sensación: ${s.sensacion||'Sin dato'} · Esfuerzo: ${s.esfuerzo||0}/10 ${s.comentario?'<br>'+s.comentario:''}</p></div><span class="badge b-green">${s.semana||''}</span></li>`).join('');
- const rc=counts(sesiones,'rutina');
- const modo=sesiones.map(s=>({modo:String(s.rutina).toLowerCase().includes('b')?'Recovery / B':'Plus / A'}));
- const mc=counts(modo,'modo');
+ document.getElementById('history').innerHTML=sesiones.map(s=>`<li class="log"><strong>${shortDate(s.fecha)}</strong><div><span class="badge b-blue">${s.rutina||'Sin rutina'}</span> <span class="badge ${dolorNum(s.dolor)>0?'b-red':'b-green'}">Dolor: ${s.dolor}</span><p class="muted" style="margin-top:8px">${s.sesion_objetivo? s.sesion_objetivo+' · ' : ''}${s.completada||'Sin dato'} · Sensación: ${s.sensacion||'Sin dato'} · Esfuerzo: ${s.esfuerzo||0}/10 ${s.comentario?'<br>'+s.comentario:''}</p></div><span class="badge b-green">${s.semana||''}</span></li>`).join('');
+
+ const rc = elecciones.length ? counts(elecciones,'rutina') : counts(sesiones,'rutina');
+ const mc = elecciones.length ? counts(elecciones,'modo') : counts(sesiones.map(s=>({modo:String(s.rutina).toLowerCase().includes('b')?'Recovery / B':'Plus / A'})),'modo');
  drawBar(document.getElementById('monthlyChart'),labels,sesionesMes);
  drawBar(document.getElementById('routineChart'),Object.keys(rc),Object.values(rc),{color:'#4f8cff'});
- drawLine(document.getElementById('sessionChart'),sesiones.map(s=>String(s.fecha).slice(5,10)),sesiones.map(s=>Number(s.esfuerzo)),'#65d978');
+ drawLine(document.getElementById('sessionChart'),sesiones.map(s=>labelDate(s.fecha)),sesiones.map(s=>Number(s.esfuerzo)),'#65d978');
  drawBar(document.getElementById('modeChart'),Object.keys(mc),Object.values(mc),{color:'#65d978'});
 }
 
 async function cargarDatos(){
  try{
   document.getElementById('kpis').innerHTML=`<div class="kpi"><small>Estado</small><strong>Cargando...</strong></div>`;
-  const res=await fetch(API_URL);
+  const res=await fetch(API_URL + '?t=' + Date.now());
   const json=await res.json();
   if(!json.ok) throw new Error(json.message||'Apps Script respondió con error');
-  sesiones=json.data||[];
-  sesiones.sort((a,b)=>new Date(String(a.fecha).slice(0,10))-new Date(String(b.fecha).slice(0,10)));
+  sesiones = json.registros || json.data || [];
+  elecciones = json.elecciones || [];
+  sesiones.sort((a,b)=>parseDate(a.fecha)-parseDate(b.fecha));
+  elecciones.sort((a,b)=>parseDate(a.fecha)-parseDate(b.fecha));
   render();
  }catch(error){
   console.error(error);
+  document.getElementById('clientName').textContent='Error';
   document.getElementById('kpis').innerHTML=`<div class="kpi"><small>Error de conexión</small><strong>Revisar URL</strong></div><div class="kpi"><small>Detalle</small><strong style="font-size:.9rem">${error.message}</strong></div>`;
  }
 }

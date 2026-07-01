@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -97,8 +99,12 @@ async function cargarDatos(){
   const res=await fetch(API_URL);
   const json=await res.json();
   if(!json.ok) throw new Error(json.mensaje || json.error || 'Apps Script respondió con error');
-  sesiones = json.registro_sesion || [];
-  elecciones = json.rutina_escogida || [];
+  // La API actual devuelve estas claves:
+  // - respuestas_registro: registros/check-ins después de entrenar
+  // - respuestas: elecciones de rutina A/B
+  // Se dejan los nombres antiguos como respaldo por si reutilizas otra API.
+  sesiones = json.respuestas_registro || json.registro_sesion || [];
+  elecciones = json.respuestas || json.rutina_escogida || [];
   sesiones.sort((a,b)=>new Date(String(a.fecha).slice(0,10))-new Date(String(b.fecha).slice(0,10)));
   render();
  }catch(error){

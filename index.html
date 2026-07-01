@@ -39,7 +39,7 @@ body:before{content:"";position:fixed;inset:0;pointer-events:none;background:rad
 
 <section id="registro" class="section">
   <div class="grid">
-    <article class="card"><h2>Dolor y esfuerzo</h2><p class="muted">Cada punto sale de los registros diarios de sesión.</p><div class="chart-box"><canvas id="sessionChart"></canvas></div></article>
+    <article class="card"><h2>Dolor percibido</h2><p class="muted">Escala interna: No = 0 · Leve = 3 · Moderado = 6 · Alto/Intenso = 8.</p><div class="chart-box"><canvas id="sessionChart"></canvas></div></article>
     <article class="card"><h2>Modo usado</h2><p class="muted">Plus o Recovery según la elección de rutina registrada.</p><div class="chart-box"><canvas id="modeChart"></canvas></div></article>
   </div>
   <article class="card" style="margin-top:14px"><h2>Historial de check-ins</h2><ul class="history" id="history"></ul></article>
@@ -60,7 +60,17 @@ const hitos=[
 ];
 
 function monthKey(date){const d=new Date(String(date).slice(0,10)+'T00:00:00');return d.toLocaleDateString('es-CL',{month:'short',year:'numeric'}).replace('.','')}
-function dolorNum(v){const t=String(v).toLowerCase().trim(); if(t==='no'||t==='0'||t==='')return 0; const n=Number(t.replace(',','.')); if(!isNaN(n))return n; return t.includes('sí')?1:0}
+function dolorNum(v){
+  const t = String(v).toLowerCase().trim();
+
+  if (t === "no" || t === "" || t === "0") return 0;
+  if (t.includes("leve")) return 3;
+  if (t.includes("moderado")) return 6;
+  if (t.includes("intenso") || t.includes("alto")) return 8;
+
+  const n = Number(t.replace(",", "."));
+  return isNaN(n) ? 0 : n;
+}
 function avg(a){const nums=a.map(Number).filter(n=>!isNaN(n)); return nums.length?nums.reduce((x,y)=>x+y,0)/nums.length:0}
 function counts(arr,key){return arr.reduce((o,r)=>{const v=r[key]||'Sin dato'; o[v]=(o[v]||0)+1; return o},{})}
 
@@ -89,7 +99,7 @@ function render(){
  const mc=counts(modo,'modo');
  drawBar(document.getElementById('monthlyChart'),labels,sesionesMes);
  drawBar(document.getElementById('routineChart'),Object.keys(rc),Object.values(rc),{color:'#4f8cff'});
- drawLine(document.getElementById('sessionChart'),sesiones.map(s=>String(s.fecha).slice(5,10)),sesiones.map(s=>Number(s.esfuerzo)),'#65d978');
+ drawLine(document.getElementById('sessionChart'),sesiones.map(s=>String(s.fecha).slice(5,10)),sesiones.map(s=>dolorNum(s.dolor)),'#ff7474');
  drawBar(document.getElementById('modeChart'),Object.keys(mc),Object.values(mc),{color:'#65d978'});
 }
 
@@ -99,10 +109,6 @@ async function cargarDatos(){
   const res=await fetch(API_URL);
   const json=await res.json();
   if(!json.ok) throw new Error(json.mensaje || json.error || 'Apps Script respondió con error');
-  // La API actual devuelve estas claves:
-  // - respuestas_registro: registros/check-ins después de entrenar
-  // - respuestas: elecciones de rutina A/B
-  // Se dejan los nombres antiguos como respaldo por si reutilizas otra API.
   sesiones = json.respuestas_registro || json.registro_sesion || [];
   elecciones = json.respuestas || json.rutina_escogida || [];
   sesiones.sort((a,b)=>new Date(String(a.fecha).slice(0,10))-new Date(String(b.fecha).slice(0,10)));
